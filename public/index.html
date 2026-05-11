@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WS Auction</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: #0f0f13;
+      color: #e8e8f0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .view { display: none; width: 100%; max-width: 560px; padding: 24px; }
+    .view.active { display: block; }
+
+    h1 { font-size: 2rem; margin-bottom: 8px; }
+    h2 { font-size: 1.4rem; margin-bottom: 16px; color: #a0a0c0; }
+    p  { color: #a0a0c0; margin-bottom: 12px; }
+
+    /* ── inputs ── */
+    .field { margin-bottom: 16px; }
+    label  { display: block; font-size: 0.8rem; color: #888; margin-bottom: 4px; text-transform: uppercase; letter-spacing: .05em; }
+    input  { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid #2a2a3a; background: #1a1a24; color: #e8e8f0; font-size: 1rem; outline: none; }
+    input:focus { border-color: #6c63ff; }
+
+    /* ── buttons ── */
+    button {
+      padding: 10px 20px; border-radius: 8px; border: none;
+      font-size: 0.95rem; cursor: pointer; transition: opacity .15s;
+    }
+    button:disabled { opacity: .4; cursor: not-allowed; }
+    .btn-primary { background: #6c63ff; color: #fff; width: 100%; }
+    .btn-primary:hover:not(:disabled) { opacity: .85; }
+    .btn-sm { background: #2a2a3a; color: #e8e8f0; padding: 6px 14px; font-size: 0.85rem; }
+
+    /* ── card ── */
+    .card {
+      background: #1a1a24; border: 1px solid #2a2a3a;
+      border-radius: 12px; padding: 20px; margin-bottom: 16px;
+    }
+
+    /* ── lobby ── */
+    #player-list { list-style: none; }
+    #player-list li {
+      padding: 8px 12px; border-radius: 6px;
+      background: #22223a; margin-bottom: 6px;
+      display: flex; align-items: center; gap: 8px;
+    }
+    .badge {
+      font-size: 0.7rem; background: #6c63ff; color: #fff;
+      border-radius: 4px; padding: 2px 6px; text-transform: uppercase;
+    }
+    #lobby-status { color: #a0a0c0; font-size: 0.85rem; margin-top: 12px; }
+
+    /* ── auction ── */
+    #item-emoji  { font-size: 4rem; text-align: center; margin-bottom: 8px; }
+    #item-name   { font-size: 1.3rem; font-weight: 600; text-align: center; }
+    #item-desc   { font-size: 0.9rem; color: #888; text-align: center; margin-top: 4px; }
+
+    .bid-row {
+      display: flex; gap: 12px; align-items: center; margin-top: 16px;
+    }
+    #bid-input { flex: 1; }
+
+    .stats {
+      display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px;
+    }
+    .stat { background: #22223a; border-radius: 8px; padding: 10px 14px; }
+    .stat-label { font-size: 0.75rem; color: #888; text-transform: uppercase; }
+    .stat-value { font-size: 1.1rem; font-weight: 600; margin-top: 2px; }
+
+    #timer-bar-wrap {
+      height: 6px; background: #2a2a3a; border-radius: 3px; margin-top: 14px; overflow: hidden;
+    }
+    #timer-bar { height: 100%; background: #6c63ff; transition: width .9s linear; }
+
+    /* ── round-end overlay ── */
+    #round-end-overlay {
+      position: fixed; inset: 0; background: rgba(0,0,0,.75);
+      display: none; align-items: center; justify-content: center; z-index: 10;
+    }
+    #round-end-overlay.show { display: flex; }
+    #round-end-card {
+      background: #1a1a24; border: 1px solid #2a2a3a; border-radius: 14px;
+      padding: 28px; max-width: 420px; width: 90%; text-align: center;
+    }
+    #round-end-card h2 { margin-bottom: 8px; }
+    #round-end-profit { font-size: 1.5rem; font-weight: 700; margin: 10px 0; }
+    .profit-pos { color: #4caf50; }
+    .profit-neg { color: #f44336; }
+
+    /* ── leaderboard ── */
+    .lb-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 8px 12px; border-radius: 6px; background: #22223a; margin-bottom: 6px;
+    }
+    .lb-rank { color: #555; min-width: 24px; }
+    .lb-name { flex: 1; margin-left: 8px; }
+    .lb-profit { font-weight: 600; }
+
+    /* ── error toast ── */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #c0392b; color: #fff; padding: 10px 20px; border-radius: 8px;
+      font-size: 0.9rem; display: none; z-index: 20;
+    }
+    #toast.show { display: block; }
+  </style>
+</head>
+<body>
+
+<!-- ── JOIN ─────────────────────────────────────────────────── -->
+<div id="view-join" class="view active">
+  <h1>🪙 WS Auction</h1>
+  <p>Enter a room code to join an existing game, or type a new one to create a room.</p>
+  <div class="field"><label>Your name</label><input id="inp-name" placeholder="e.g. Alex" maxlength="20" /></div>
+  <div class="field"><label>Room code</label><input id="inp-room" placeholder="e.g. haunted42" maxlength="20" /></div>
+  <button class="btn-primary" id="btn-join">Join / Create Room</button>
+</div>
+
+<!-- ── LOBBY ────────────────────────────────────────────────── -->
+<div id="view-lobby" class="view">
+  <h2>Lobby — <span id="lobby-room-id"></span></h2>
+  <div class="card">
+    <p style="margin-bottom:10px">Players</p>
+    <ul id="player-list"></ul>
+  </div>
+  <div id="lobby-status">Waiting for host to start…</div>
+  <button class="btn-primary" id="btn-start" style="margin-top:16px;display:none">Start Game</button>
+</div>
+
+<!-- ── AUCTION ───────────────────────────────────────────────── -->
+<div id="view-auction" class="view">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+    <span id="round-label" style="color:#888;font-size:0.85rem"></span>
+    <span id="timer-label" style="font-size:1.1rem;font-weight:700"></span>
+  </div>
+
+  <div class="card">
+    <div id="item-emoji"></div>
+    <div id="item-name"></div>
+    <div id="item-desc"></div>
+    <div id="timer-bar-wrap"><div id="timer-bar"></div></div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-label">Highest bid</div>
+      <div class="stat-value" id="stat-highest">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Your bid</div>
+      <div class="stat-value" id="stat-yours">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Balance</div>
+      <div class="stat-value" id="stat-balance"></div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Total profit</div>
+      <div class="stat-value" id="stat-profit">$0</div>
+    </div>
+  </div>
+
+  <div class="bid-row">
+    <input id="bid-input" type="number" placeholder="Your bid" min="1" />
+    <button class="btn-sm" id="btn-bid">Bid</button>
+  </div>
+</div>
+
+<!-- ── GAME OVER ─────────────────────────────────────────────── -->
+<div id="view-results" class="view">
+  <h1>Game Over</h1>
+  <p id="results-winner" style="font-size:1.1rem;margin-bottom:18px"></p>
+  <div id="final-leaderboard"></div>
+  <button class="btn-primary" id="btn-play-again" style="margin-top:16px">Play Again</button>
+</div>
+
+<!-- ── ROUND END OVERLAY ─────────────────────────────────────── -->
+<div id="round-end-overlay">
+  <div id="round-end-card">
+    <h2 id="round-end-title"></h2>
+    <div id="round-end-profit"></div>
+    <p id="round-end-detail"></p>
+    <div id="round-leaderboard" style="margin-top:16px;text-align:left"></div>
+  </div>
+</div>
+
+<!-- ── ERROR TOAST ───────────────────────────────────────────── -->
+<div id="toast"></div>
+
+<script src="client.js"></script>
+</body>
+</html>
