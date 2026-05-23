@@ -13,7 +13,7 @@ export const rooms = new Map<string, Room>();
 export const socketToPlayer = new Map<WebSocket, { roomId: string; playerId: string }>();
 
 export function generateId(): string {
-  return Math.random().toString(36).slice(2, 10);
+  return crypto.randomUUID();
 }
 
 export function createRoom(roomId: string): Room {

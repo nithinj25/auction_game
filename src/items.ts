@@ -1,9 +1,6 @@
 import { ItemTemplate, AuctionRound } from "./types";
 import { TOTAL_ROUNDS } from "./constants";
 
-//item pool 
-//each item has a range of price and not a fixed price
-
 const ITEM_POOL: ItemTemplate[] = [
   {
     name: "Vintage Wristwatch",
@@ -59,7 +56,7 @@ const ITEM_POOL: ItemTemplate[] = [
     description: "Contents unknown. Something shifts inside when tilted. Smells faintly of the sea.",
     imageEmoji: "📦",
     minValue: 10,
-    maxValue: 1500,  // highest variance — pure gamble
+    maxValue: 1500,
   },
   {
     name: "Cursed Compass",
@@ -77,34 +74,28 @@ const ITEM_POOL: ItemTemplate[] = [
   },
 ];
 
-//pick items
-//we do fisher-yates shuffle its unbiased
-//Math.random() sort trick looks clearn but is statistically biased
 function shuffle<T>(arr: T[]): T[] {
-    const a = [...arr];
-    for(let i = a.length - 1; i > 0; i--){
-        const j = Math.floor(Math.random() * (i + 1));
-        [a[i], a[j]] = [a[j], a[i]];
-    }
-    return a;
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
 }
 
 export function generateRounds(): AuctionRound[] {
-    const picked  = shuffle(ITEM_POOL).slice(0, TOTAL_ROUNDS);
-
-    return picked.map((item) => {
-        const trueValue = 
-            Math.floor(Math.random() * (item.maxValue - item.minValue + 1) + item.minValue);
-
-        const startingBid = Math.round(trueValue * 0.1);
-
-        return {
-            item, 
-            trueValue,
-            startingBid, 
-            highestBid: startingBid,
-            highestBidderId: null,
-            startedAt: 0,
-        };
-    });
-} 
+  const picked = shuffle(ITEM_POOL).slice(0, TOTAL_ROUNDS);
+  return picked.map((item) => {
+    const trueValue =
+      Math.floor(Math.random() * (item.maxValue - item.minValue + 1)) + item.minValue;
+    const startingBid = Math.round(trueValue * 0.1);
+    return {
+      item,
+      trueValue,
+      startingBid,
+      highestBid: startingBid,
+      highestBidderId: null,
+      startedAt: 0,
+    };
+  });
+}

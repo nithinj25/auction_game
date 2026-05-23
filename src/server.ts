@@ -1,8 +1,9 @@
 import http from "http";
 import fs from "fs";
 import path from "path";
-import { WebSocketServer } from "ws";
+import WebSocket, { WebSocketServer } from "ws";
 import { handleMessage, handleDisconnect } from "./handlers";
+
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC = path.join(__dirname, "..", "public");
@@ -29,9 +30,11 @@ const server = http.createServer((req, res) => {
   });
 });
 
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ server, maxPayload: 1024 });
 
 wss.on("connection", (ws) => {
+  (ws as any).isAlive = true;
+  ws.on("pong", () => { (ws as any).isAlive = true; });
   console.log("[ws] client connected");
 
   ws.on("message", (raw) => handleMessage(ws, raw.toString()));
@@ -43,6 +46,14 @@ wss.on("connection", (ws) => {
 
   ws.on("error", (err) => console.error("[ws] error:", err.message));
 });
+
+setInterval(() => {
+  wss.clients.forEach((ws) => {
+    if (!(ws as any).isAlive) { ws.terminate(); return; }
+    (ws as any).isAlive = false;
+    ws.ping();
+  });
+}, 30_000);
 
 server.listen(PORT, () => {
   console.log(`[server] http://localhost:${PORT}`);

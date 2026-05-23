@@ -1,5 +1,6 @@
 import { Room } from "./types";
 import {
+  rooms,
   broadcast,
   broadcastBidUpdate,
   resetBids,
@@ -82,6 +83,7 @@ function resolveRound(room: Room): void {
   });
 
   setTimeout(() => {
+    if(!rooms.get(room.id)) return;
     if (room.currentRound + 1 >= TOTAL_ROUNDS) {
       endGame(room);
     } else {

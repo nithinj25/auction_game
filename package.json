@@ -3,7 +3,8 @@
   "version": "1.0.0",
   "main": "dist/server.js",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run build:client",
+    "build:client": "cd client && npm install && npm run build",
     "start": "node dist/server.js",
     "dev": "ts-node src/server.ts"
   },
