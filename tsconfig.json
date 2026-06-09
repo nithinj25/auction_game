@@ -5,8 +5,7 @@
     "rootDir": "src",
     "outDir": "dist",
     "strict": true,
-    "esModuleInterop": true,
-    "types": ["node", "ws"]
+    "esModuleInterop": true
   },
   "include": ["src"]
 }
