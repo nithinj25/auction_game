@@ -37,8 +37,11 @@ export function withHost(ctx: Context): boolean {
 export function withValidBid(ctx: Context, amount : number): boolean{
   const round = ctx.room.rounds[ctx.room.currentRound];
   if(!round) return false;
-  if(amount <= round.highestBid){
-    send(ctx.ws, { type: "error", message: `bid must exceed current price`});
+  
+  const minIncrement = Math.max(25, Math.round(round.highestBid * 0.1));
+  const minBid = round.highestBid + minIncrement;
+  if(amount < minBid){
+    send(ctx.ws, { type: "error", message: `Minimun bid is $${minBid}`});
     return false;
   }
 

@@ -1,4 +1,6 @@
+
 import WebSocket from "ws";
+import { publish } from "./redis";
 import {
   Room,
   Player,
@@ -25,6 +27,8 @@ export function createRoom(roomId: string): Room {
     currentRound: 0,
     timer: null,
     secondsLeft: 0,
+    startedAt: null,
+    dbGameId: null,
   };
   rooms.set(roomId, room);
   console.log(`[room] created -> ${roomId}`);
@@ -96,8 +100,8 @@ export function send(ws: WebSocket, msg: ServerMessage): void {
   }
 }
 
-export function broadcast(room: Room, msg: ServerMessage): void {
-  room.players.forEach((player) => send(player.ws, msg));
+export function broadcast(room: Room, msg: ServerMessage): void{
+  publish(room.id,  msg);
 }
 
 export function broadcastPersonalized(

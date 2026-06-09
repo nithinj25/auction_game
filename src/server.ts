@@ -1,9 +1,10 @@
 import http from "http";
 import fs from "fs";
 import path from "path";
-import WebSocket, { WebSocketServer } from "ws";
+import { WebSocketServer } from "ws";
 import { handleMessage, handleDisconnect } from "./handlers";
-
+import { rooms } from "./room";
+import { setupSubscriber, getTopPlayers } from "./redis";
 
 const PORT = Number(process.env.PORT) || 3000;
 const PUBLIC = path.join(__dirname, "..", "public");
@@ -14,7 +15,14 @@ const MIME: Record<string, string> = {
   ".css":  "text/css",
 };
 
-const server = http.createServer((req, res) => {
+const server = http.createServer(async (req, res) => {
+  if (req.url === "/leaderboard" && req.method === "GET") {
+    const top = await getTopPlayers();
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(top));
+    return;
+  }
+
   const urlPath = req.url === "/" ? "/index.html" : (req.url ?? "/index.html");
   const filePath = path.join(PUBLIC, urlPath);
 
@@ -31,6 +39,7 @@ const server = http.createServer((req, res) => {
 });
 
 const wss = new WebSocketServer({ server, maxPayload: 1024 });
+setupSubscriber(rooms);
 
 wss.on("connection", (ws) => {
   (ws as any).isAlive = true;

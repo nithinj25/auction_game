@@ -42,6 +42,7 @@ export interface RoundStartMessage {
   };
   timeLimit: number;
   startingBid: number;
+  hint: string;
 }
 
 export interface BidUpdateMessage {
@@ -119,6 +120,7 @@ export interface AuctionRound {
   highestBid: number;
   highestBidderId: string | null;
   startedAt: number;
+  extensionLeft: number
 }
 
 export type RoomPhase = "lobby" | "active" | "resolving" | "ended";
@@ -131,6 +133,8 @@ export interface Room {
   currentRound: number;
   timer: NodeJS.Timeout | null;
   secondsLeft: number;
+  startedAt: Date | null;
+  dbGameId: number | null;
 }
 
 export interface LeaderboardEntry {

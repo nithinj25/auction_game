@@ -1,9 +1,8 @@
-import type { CSSProperties } from 'react'
 import type { GameState } from '../App'
 
 interface Props {
   state: GameState
-  send: (msg: object) => void
+  send:  (msg: object) => void
 }
 
 export default function LobbyView({ state, send }: Props) {
@@ -11,94 +10,69 @@ export default function LobbyView({ state, send }: Props) {
   const ready = count >= 2
 
   return (
-    <div style={wrap}>
-      <div style={header}>
-        <p style={roomLabel}>ROOM</p>
-        <h2 style={roomCode}>{state.roomId}</h2>
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4">
+
+      <div className="text-center mb-8">
+        <div className="text-[var(--muted)] text-[9px] tracking-[0.4em] mb-3">ROOM CODE</div>
+        <div className="text-[#f8b400] text-2xl tracking-widest title-glow">{state.roomId}</div>
       </div>
 
-      <div style={card}>
-        <div style={cardHeader}>
-          <span style={cardTitle}>Players</span>
-          <span style={countBadge}>{count}</span>
+      <div className="panel w-full max-w-sm slidein">
+
+        <div className="border-b-4 border-[#f8b400] px-6 py-4 flex justify-between items-center">
+          <span className="text-[#f8b400] text-[9px] tracking-widest">PLAYERS</span>
+          <span className="text-[#f8b400] text-[9px]">{count} / 8</span>
         </div>
 
-        {state.players.map((p) => (
-          <div key={p.name} style={playerRow}>
-            <div style={avatar}>{p.name[0].toUpperCase()}</div>
-            <span style={playerName}>{p.name}</span>
-            {p.isHost && <span style={badge}>HOST</span>}
+        <div className="p-4 flex flex-col gap-2">
+          {state.players.map((p) => (
+            <div key={p.name} className="flex items-center gap-3 bevel px-4 py-3">
+              <div className="w-8 h-8 border-4 border-[#f8b400] bg-[#f8b400] text-black flex items-center justify-center text-[9px] font-bold flex-shrink-0">
+                {p.name[0].toUpperCase()}
+              </div>
+              <span className="flex-1 text-[9px] uppercase tracking-wide">{p.name}</span>
+              {p.isHost && (
+                <span className="text-[#f8b400] text-[8px] border-2 border-[#f8b400] px-2 py-1">
+                  HOST
+                </span>
+              )}
+            </div>
+          ))}
+
+          {count === 0 && (
+            <div className="font-body text-[var(--muted)] text-center py-6 blink">
+              WAITING FOR PLAYERS…
+            </div>
+          )}
+        </div>
+
+        <div className="border-t-4 border-white/10 px-6 py-4">
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 border-2 ${ready ? 'bg-[#00e436] border-[#00e436]' : 'bg-[#f8b400] border-[#f8b400] blink'}`} />
+            <span className="font-body text-[var(--muted)]">
+              {ready ? `${count} PLAYERS READY` : `NEED ${2 - count} MORE PLAYER${2 - count !== 1 ? 'S' : ''}`}
+            </span>
           </div>
-        ))}
+        </div>
+
       </div>
 
-      <div style={statusBar}>
-        <div style={{ ...dot, background: ready ? '#22c55e' : '#f59e0b' }} />
-        <span style={statusText}>
-          {ready
-            ? `${count} players ready to start`
-            : `Waiting for players… (${count}/2 minimum)`}
-        </span>
+      <div className="mt-6 w-full max-w-sm">
+        {state.isHost ? (
+          <button
+            onClick={() => ready && send({ type: 'start' })}
+            disabled={!ready}
+            className="btn btn-green w-full"
+          >
+            {ready ? '▶ START AUCTION' : '▶ WAITING…'}
+          </button>
+        ) : (
+          <div className="text-center text-[var(--muted)] text-[9px] py-4 blink">
+            WAITING FOR HOST…
+          </div>
+        )}
       </div>
 
-      {state.isHost && (
-        <button
-          style={{ ...btn, opacity: ready ? 1 : 0.4, cursor: ready ? 'pointer' : 'not-allowed' }}
-          onClick={() => ready && send({ type: 'start' })}
-        >
-          Start Auction →
-        </button>
-      )}
-
-      {!state.isHost && (
-        <p style={waitText}>Waiting for host to start the game…</p>
-      )}
     </div>
   )
 }
-
-const wrap: CSSProperties = { width: '100%', maxWidth: 480, padding: '24px 16px' }
-const header: CSSProperties = { textAlign: 'center', marginBottom: 28 }
-const roomLabel: CSSProperties = { fontSize: '0.7rem', fontWeight: 700, color: '#5555aa', letterSpacing: '0.15em' }
-const roomCode: CSSProperties = { fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.02em', color: '#eeeef8' }
-const card: CSSProperties = {
-  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 16, padding: 20, marginBottom: 16,
-  boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
-}
-const cardHeader: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }
-const cardTitle: CSSProperties = { fontWeight: 600, color: '#9999cc' }
-const countBadge: CSSProperties = {
-  background: 'rgba(108,99,255,0.2)', color: '#9b93ff',
-  borderRadius: 20, padding: '2px 10px', fontSize: '0.85rem', fontWeight: 600,
-}
-const playerRow: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 12,
-  padding: '10px 14px', borderRadius: 10,
-  background: 'rgba(255,255,255,0.04)', marginBottom: 8,
-  border: '1px solid rgba(255,255,255,0.05)',
-}
-const avatar: CSSProperties = {
-  width: 32, height: 32, borderRadius: '50%',
-  background: 'linear-gradient(135deg, #7c6fff, #5448ee)',
-  display: 'flex', alignItems: 'center', justifyContent: 'center',
-  fontSize: '0.85rem', fontWeight: 700, color: '#fff', flexShrink: 0,
-}
-const playerName: CSSProperties = { flex: 1, fontWeight: 500 }
-const badge: CSSProperties = {
-  fontSize: '0.65rem', fontWeight: 700, background: 'rgba(108,99,255,0.25)',
-  color: '#9b93ff', borderRadius: 4, padding: '3px 8px', letterSpacing: '0.08em',
-}
-const statusBar: CSSProperties = {
-  display: 'flex', alignItems: 'center', gap: 8, marginBottom: 20,
-  padding: '10px 14px', borderRadius: 10, background: 'rgba(255,255,255,0.02)',
-}
-const dot: CSSProperties = { width: 8, height: 8, borderRadius: '50%', flexShrink: 0 }
-const statusText: CSSProperties = { fontSize: '0.85rem', color: '#7777aa' }
-const btn: CSSProperties = {
-  width: '100%', padding: '13px 20px', borderRadius: 10, border: 'none',
-  background: 'linear-gradient(135deg, #7c6fff, #5448ee)',
-  color: '#fff', fontSize: '1rem', fontWeight: 600, fontFamily: 'inherit',
-  boxShadow: '0 4px 20px rgba(108,99,255,0.4)', letterSpacing: '0.01em',
-}
-const waitText: CSSProperties = { textAlign: 'center', color: '#44446a', fontSize: '0.9rem', marginTop: 8 }

@@ -4,7 +4,6 @@ import { rooms, socketToPlayer, createRoom, createPlayer, removePlayer, send, br
 import { MAX_PLAYERS, MIN_PLAYERS } from "./constants";
 import { startGame } from "./game";
 import { withContext, withPhase, withHost, withValidBid, runPipeline } from "./middleware";
-import { clear } from "console";
 
 // entry point for every incoming WebSocket message
 export function handleMessage(ws: WebSocket, raw: string): void {
@@ -37,9 +36,13 @@ export function handleDisconnect(ws: WebSocket): void {
     }
     broadcastLobbyUpdate(room);
   } else if (room.phase === "active" || room.phase === "resolving") {
-    if(room.players.size < MIN_PLAYERS){
-      broadcast(room, { type: "error", message: "Not enough players - game ended" });
+    if (room.players.size < MIN_PLAYERS) {
+      broadcast(room, { type: "error", message: "Not enough players — game ended" });
+      const remaining = Array.from(room.players.values());
       destroyRoom(room.id);
+      // delay close so the error message has time to reach clients via Redis
+      // closing the socket triggers ws.onclose on the client which resets to join screen
+      setTimeout(() => remaining.forEach(p => p.ws.close()), 2000);
     }
   }
 }
@@ -98,6 +101,12 @@ export function handleBid(ws: WebSocket, amount: number): void {
   round.highestBid       = amount;
   round.highestBidderId  = ctx.player.id;
   ctx.player.currentBid  = amount;
+
+  if(ctx.room.secondsLeft <= 5 && round.extensionLeft > 0){
+    ctx.room.secondsLeft += 5;
+    round.extensionLeft--;
+    broadcast(ctx.room, { type: "timer", secondsLeft: ctx.room.secondsLeft });
+  }
 
   broadcastBidUpdate(ctx.room);
 }

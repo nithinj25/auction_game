@@ -1,106 +1,100 @@
 import { useState } from 'react'
-import type { CSSProperties } from 'react'
+import PixelSprite, { AUCTIONEER } from '../components/PixelSprite'
 
 interface Props {
   onJoin: (name: string, roomId: string) => void
+  connecting?: boolean
+  error?: string | null
 }
 
-export default function JoinView({ onJoin }: Props) {
-  const [name, setName]     = useState('')
+export default function JoinView({ onJoin, connecting = false, error }: Props) {
+  const [name,   setName]   = useState('')
   const [roomId, setRoomId] = useState('')
 
-  const handleJoin = () => {
-    if (!name.trim() || !roomId.trim()) return
-    onJoin(name.trim(), roomId.trim())
+  const canStart = name.trim().length > 0 && roomId.trim().length > 0 && !connecting
+
+  const go = () => {
+    if (canStart) onJoin(name.trim(), roomId.trim())
   }
 
   return (
-    <div style={wrap}>
-      <div style={hero}>
-        <div style={iconWrap}>🪙</div>
-        <h1 style={title}>WS Auction</h1>
-        <p style={subtitle}>Bid smart. Win big. Outsmart everyone.</p>
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4">
+
+      <div className="text-center mb-8">
+        <div className="text-[#f8b400] text-[10px] tracking-[0.5em] mb-6 pulse">
+          ★ INSERT COIN ★
+        </div>
+        <PixelSprite rows={AUCTIONEER} scale={8} className="mx-auto mb-6 bob" />
+        <h1 className="text-[#f8b400] text-4xl leading-loose tracking-widest title-glow">
+          AUCTION<br />HOUSE
+        </h1>
+        <div className="text-[var(--muted)] text-[9px] mt-4 tracking-[0.4em]">
+          BID · BLUFF · WIN
+        </div>
       </div>
 
-      <div style={card}>
-        <div style={field}>
-          <label style={label}>Your name</label>
+      <div className="panel p-8 w-full max-w-sm slidein flex flex-col gap-6">
+
+        <div>
+          <label htmlFor="player-name" className="block text-[#f8b400] text-[9px] mb-2 tracking-widest">
+            ▶ PLAYER NAME
+          </label>
           <input
-            style={input}
-            placeholder="e.g. Alex"
+            id="player-name"
+            className="field uppercase"
+            placeholder="PLAYER ONE"
             maxLength={20}
+            autoFocus
+            disabled={connecting}
             value={name}
             onChange={e => setName(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && document.getElementById('room-input')?.focus()}
+            onKeyDown={e => e.key === 'Enter' && go()}
           />
         </div>
 
-        <div style={field}>
-          <label style={label}>Room code</label>
+        <div>
+          <label htmlFor="room-code" className="block text-[#f8b400] text-[9px] mb-2 tracking-widest">
+            ▶ ROOM CODE
+          </label>
           <input
-            id="room-input"
-            style={input}
-            placeholder="e.g. haunted42"
+            id="room-code"
+            className="field uppercase"
+            placeholder="e.g.  FIRE"
             maxLength={20}
+            disabled={connecting}
             value={roomId}
-            onChange={e => setRoomId(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleJoin()}
+            onChange={e => setRoomId(e.target.value.toUpperCase())}
+            onKeyDown={e => e.key === 'Enter' && go()}
           />
         </div>
 
-        <button style={btn} onClick={handleJoin}>
-          Join / Create Room →
+        {error && (
+          <div
+            className="bevel px-4 py-3 text-[8px] leading-relaxed shake"
+            style={{ borderColor: 'var(--danger)', color: 'var(--danger)' }}
+            role="alert"
+          >
+            ⚠ {error.toUpperCase()}
+          </div>
+        )}
+
+        <button onClick={go} disabled={!canStart} className="btn btn-gold w-full flex items-center justify-center gap-2">
+          {connecting ? (
+            <>
+              <span className="spinner" aria-hidden /> CONNECTING…
+            </>
+          ) : (
+            '▶ START'
+          )}
         </button>
+
       </div>
 
-      <p style={hint}>Create a room by entering a new code, or join an existing one.</p>
+      <div className="mt-8 text-[var(--muted)] text-[8px] text-center leading-loose">
+        NEW CODE = NEW ROOM<br />
+        SAME CODE = JOIN ROOM
+      </div>
+
     </div>
   )
-}
-
-const wrap: CSSProperties = {
-  width: '100%', maxWidth: 480, padding: '24px 16px',
-}
-const hero: CSSProperties = {
-  textAlign: 'center', marginBottom: 32,
-}
-const iconWrap: CSSProperties = {
-  fontSize: '3.5rem', marginBottom: 12,
-  filter: 'drop-shadow(0 0 20px rgba(108,99,255,0.6))',
-}
-const title: CSSProperties = {
-  fontSize: '2.4rem', fontWeight: 800, letterSpacing: '-0.03em',
-  background: 'linear-gradient(135deg, #fff 40%, #9b93ff)',
-  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
-}
-const subtitle: CSSProperties = {
-  color: '#6666aa', fontSize: '0.95rem', marginTop: 8, fontWeight: 500,
-}
-const card: CSSProperties = {
-  background: 'rgba(255,255,255,0.03)',
-  border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 16, padding: 28,
-  boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
-}
-const field: CSSProperties = { marginBottom: 16 }
-const label: CSSProperties = {
-  display: 'block', fontSize: '0.75rem', fontWeight: 600,
-  color: '#6666aa', marginBottom: 8, textTransform: 'uppercase', letterSpacing: '0.08em',
-}
-const input: CSSProperties = {
-  width: '100%', padding: '12px 16px', borderRadius: 10,
-  border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)',
-  color: '#eeeef8', fontSize: '1rem', fontFamily: 'inherit',
-  transition: 'border-color 0.2s',
-}
-const btn: CSSProperties = {
-  width: '100%', padding: '13px 20px', borderRadius: 10, border: 'none',
-  background: 'linear-gradient(135deg, #7c6fff, #5448ee)',
-  color: '#fff', fontSize: '1rem', fontWeight: 600,
-  cursor: 'pointer', marginTop: 8, letterSpacing: '0.01em',
-  boxShadow: '0 4px 20px rgba(108,99,255,0.4)',
-  fontFamily: 'inherit',
-}
-const hint: CSSProperties = {
-  textAlign: 'center', color: '#44446a', fontSize: '0.8rem', marginTop: 16,
 }

@@ -1,10 +1,11 @@
-import { useReducer, useCallback, useRef } from 'react'
+import { useReducer, useCallback, useRef, useState } from 'react'
 import type { ServerMessage, RoundEndMessage, LeaderboardEntry } from './types'
 import JoinView from './views/JoinView'
 import LobbyView from './views/LobbyView'
 import AuctionView from './views/AuctionView'
 import ResultsView from './views/ResultsView'
 import RoundEndOverlay from './components/RoundEndOverlay'
+import ConnectionStatus, { type ConnStatus } from './components/ConnectionStatus'
 
 export type View = 'join' | 'lobby' | 'auction' | 'results'
 
@@ -23,6 +24,7 @@ export interface GameState {
     item: { name: string; description: string; imageEmoji: string }
     timeLimit: number
     startingBid: number
+    hint: string
   } | null
   highestBid: number
   highestBidder: string | null
@@ -68,7 +70,7 @@ function reducer(state: GameState, action: Action): GameState {
     case 'lobby_update':
       return { ...state, players: msg.players }
     case 'round_start':
-      return { ...state, view: 'auction', round: { current: msg.round, total: msg.totalRounds, item: msg.item, timeLimit: msg.timeLimit, startingBid: msg.startingBid }, highestBid: msg.startingBid, highestBidder: null, yourBid: null, secondsLeft: msg.timeLimit, roundResult: null }
+      return { ...state, view: 'auction', round: { current: msg.round, total: msg.totalRounds, item: msg.item, timeLimit: msg.timeLimit, startingBid: msg.startingBid, hint: msg.hint }, highestBid: msg.startingBid, highestBidder: null, yourBid: null, secondsLeft: msg.timeLimit, roundResult: null }
     case 'bid_update':
       return { ...state, highestBid: msg.highestBid, highestBidder: msg.highestBidder, yourBid: msg.yourBid }
     case 'timer':
@@ -91,6 +93,9 @@ function reducer(state: GameState, action: Action): GameState {
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initial)
   const wsRef = useRef<WebSocket | null>(null)
+  const intentionalClose = useRef(false)
+  const [conn, setConn] = useState<ConnStatus>('idle')
+  const [joinError, setJoinError] = useState<string | null>(null)
 
   const send = useCallback((msg: object) => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
@@ -99,44 +104,60 @@ export default function App() {
   }, [])
 
   const connect = useCallback((name: string, roomId: string) => {
+    setConn('connecting')
+    setJoinError(null)
+    dispatch({ type: 'CLEAR_TOAST' })
+
     const proto = location.protocol === 'https:' ? 'wss' : 'ws'
     const url = import.meta.env.DEV ? 'ws://localhost:3000' : `${proto}://${location.host}`
     const ws = new WebSocket(url)
     wsRef.current = ws
 
-    ws.onopen = () => send({ type: 'join', name, roomId })
+    let opened = false
+    ws.onopen = () => { opened = true; setConn('connected'); send({ type: 'join', name, roomId }) }
     ws.onmessage = (ev) => dispatch({ type: 'MSG', msg: JSON.parse(ev.data) })
+    ws.onerror = () => { if (!opened) setJoinError('CONNECTION FAILED — SERVER UNREACHABLE') }
     ws.onclose = () => {
+      setConn('disconnected')
+      if (intentionalClose.current) { intentionalClose.current = false; return }
+      if (!opened) setJoinError('CONNECTION FAILED — SERVER UNREACHABLE')
       dispatch({ type: 'RESET' })
       dispatch({ type: 'MSG', msg: { type: 'error', message: 'Disconnected from server' } })
     }
   }, [send])
 
   const reset = useCallback(() => {
+    intentionalClose.current = true
     wsRef.current?.close()
+    setConn('idle')
+    setJoinError(null)
     dispatch({ type: 'RESET' })
   }, [])
 
   return (
     <>
-      {state.view === 'join'    && <JoinView onJoin={connect} />}
-      {state.view === 'lobby'   && <LobbyView state={state} send={send} />}
-      {state.view === 'auction' && <AuctionView state={state} send={send} />}
-      {state.view === 'results' && <ResultsView state={state} onPlayAgain={reset} />}
+      {/* keyed wrapper → CRT power-on flicker each time the view changes */}
+      <div key={state.view} className="poweron w-full">
+        {state.view === 'join'    && <JoinView onJoin={connect} connecting={conn === 'connecting'} error={joinError ?? state.toast} />}
+        {state.view === 'lobby'   && <LobbyView state={state} send={send} />}
+        {state.view === 'auction' && <AuctionView state={state} send={send} />}
+        {state.view === 'results' && <ResultsView state={state} onPlayAgain={reset} />}
+      </div>
 
-      {state.roundResult && <RoundEndOverlay result={state.roundResult} />}
+      {state.view !== 'join' && <ConnectionStatus status={conn} />}
 
-      {state.toast && (
-        <div style={toastStyle} onClick={() => dispatch({ type: 'CLEAR_TOAST' })}>
-          {state.toast}
+      {state.roundResult && <RoundEndOverlay result={state.roundResult} me={state.name} />}
+
+      {/* Join screen surfaces errors inline, so only toast elsewhere */}
+      {state.toast && state.view !== 'join' && (
+        <div
+          className="fixed bottom-6 left-1/2 -translate-x-1/2 z-20 border-4 px-6 py-3 cursor-pointer tracking-widest text-[8px] slidein"
+          style={{ borderColor: 'var(--danger)', color: 'var(--danger)', background: '#000', boxShadow: '4px 4px 0 var(--danger)' }}
+          onClick={() => dispatch({ type: 'CLEAR_TOAST' })}
+        >
+          ⚠ {state.toast.toUpperCase()}
         </div>
       )}
     </>
   )
-}
-
-const toastStyle: React.CSSProperties = {
-  position: 'fixed', bottom: 24, left: '50%', transform: 'translateX(-50%)',
-  background: '#c0392b', color: '#fff', padding: '10px 20px',
-  borderRadius: 8, fontSize: '0.9rem', cursor: 'pointer', zIndex: 20,
 }

@@ -19,6 +19,7 @@ export interface RoundStartMessage {
   item: { name: string; description: string; imageEmoji: string };
   timeLimit: number;
   startingBid: number;
+  hint: string;
 }
 
 export interface BidUpdateMessage {

@@ -1,15 +1,15 @@
-import { useState } from 'react'
-import type { CSSProperties } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { GameState } from '../App'
+import PixelSprite, { AUCTIONEER } from '../components/PixelSprite'
 
 interface Props {
   state: GameState
-  send: (msg: object) => void
+  send:  (msg: object) => void
 }
 
-function fmt(n: number) {
-  return '$' + Number(n).toLocaleString()
-}
+function fmt(n: number) { return '$' + Number(n).toLocaleString() }
+
+const TOTAL_BLOCKS = 20
 
 export default function AuctionView({ state, send }: Props) {
   const [bidInput, setBidInput] = useState('')
@@ -22,107 +22,134 @@ export default function AuctionView({ state, send }: Props) {
   }
 
   const { round, highestBid, highestBidder, yourBid, secondsLeft, balance, profit } = state
-  if (!round) return null
 
-  const pct = Math.max(0, (secondsLeft / round.timeLimit) * 100)
-  const barColor = pct < 25 ? '#ef4444' : pct < 50 ? '#f59e0b' : '#7c6fff'
   const isLeading = highestBidder === state.name
 
+  // Briefly shake the TOP BID box the moment you lose the lead.
+  const [outbid, setOutbid] = useState(false)
+  const wasLeading = useRef(false)
+  useEffect(() => {
+    if (wasLeading.current && !isLeading && yourBid !== null) {
+      setOutbid(true)
+      const t = setTimeout(() => setOutbid(false), 350)
+      wasLeading.current = isLeading
+      return () => clearTimeout(t)
+    }
+    wasLeading.current = isLeading
+  }, [isLeading, yourBid])
+
+  if (!round) return null
+
+  const filled     = Math.ceil((secondsLeft / round.timeLimit) * TOTAL_BLOCKS)
+  const blockColor = secondsLeft <= 5 ? 'var(--danger)' : secondsLeft <= 10 ? 'var(--gold)' : 'var(--green)'
+  const minBid     = Math.max(highestBid + Math.max(25, Math.round(highestBid * 0.1)), highestBid + 1)
+
   return (
-    <div style={wrap}>
+    <div className="min-h-screen w-full flex flex-col items-center justify-center p-4">
+      <div className="w-full max-w-md flex flex-col gap-4 slidein">
 
-      <div style={topBar}>
-        <span style={roundLabel}>Round {round.current} / {round.total}</span>
-        <span style={{ ...timerLabel, color: pct < 25 ? '#ef4444' : '#eeeef8' }}>
-          {secondsLeft}s
-        </span>
-      </div>
-
-      <div style={timerBarWrap}>
-        <div style={{ ...timerBar, width: pct + '%', background: barColor }} />
-      </div>
-
-      <div style={itemCard}>
-        <div style={emojiWrap}>{round.item.imageEmoji}</div>
-        <h2 style={itemName}>{round.item.name}</h2>
-        <p style={itemDesc}>{round.item.description}</p>
-      </div>
-
-      <div style={statsGrid}>
-        <div style={stat}>
-          <div style={statLabel}>Highest bid</div>
-          <div style={statValue}>{fmt(highestBid)}</div>
-          {highestBidder && <div style={statSub}>{isLeading ? '🏆 You' : highestBidder}</div>}
+        {/* Top bar */}
+        <div className="flex justify-between items-center">
+          <span className="text-[var(--muted)] text-[9px] tracking-widest">
+            ROUND {round.current}/{round.total}
+          </span>
+          <span
+            className={`text-[10px] font-bold ${secondsLeft <= 5 ? 'blink' : ''}`}
+            style={{ color: secondsLeft <= 5 ? 'var(--danger)' : 'var(--ink)' }}
+          >
+            {secondsLeft}s
+          </span>
         </div>
-        <div style={stat}>
-          <div style={statLabel}>Your bid</div>
-          <div style={{ ...statValue, color: yourBid !== null ? '#7c6fff' : '#44446a' }}>
-            {yourBid !== null ? fmt(yourBid) : '—'}
+
+        {/* Pixel timer bar */}
+        <div className="flex gap-[3px]">
+          {Array.from({ length: TOTAL_BLOCKS }, (_, i) => (
+            <div
+              key={i}
+              className="h-4 flex-1"
+              style={{ background: i < filled ? blockColor : '#1a1a1a' }}
+            />
+          ))}
+        </div>
+
+        {/* Item card */}
+        <div className="panel p-6 text-center">
+          <div className="text-5xl mb-4">{round.item.imageEmoji}</div>
+          <div className="text-[var(--gold)] text-[10px] tracking-wide mb-3 leading-relaxed">
+            {round.item.name.toUpperCase()}
+          </div>
+          <div className="font-body text-[var(--muted)]">
+            {round.item.description}
           </div>
         </div>
-        <div style={stat}>
-          <div style={statLabel}>Balance</div>
-          <div style={statValue}>{fmt(balance)}</div>
-        </div>
-        <div style={stat}>
-          <div style={statLabel}>Profit</div>
-          <div style={{ ...statValue, color: profit >= 0 ? '#22c55e' : '#ef4444' }}>
-            {profit >= 0 ? '+' : ''}{fmt(profit)}
+
+        {/* Private hint */}
+        <div className="bevel p-4 flex items-start gap-4" style={{ borderColor: 'var(--cyan)' }}>
+          <PixelSprite rows={AUCTIONEER} scale={4} className="flex-shrink-0 mt-1" />
+          <div>
+            <div className="text-[var(--cyan)] text-[8px] tracking-widest mb-2">◈ YOUR PRIVATE INTEL</div>
+            <div className="font-body text-[var(--ink)]">{round.hint}</div>
           </div>
         </div>
-      </div>
 
-      <div style={bidRow}>
-        <input
-          style={bidInput_}
-          type="number"
-          placeholder={`Min $${highestBid + 1}`}
-          min={highestBid + 1}
-          value={bidInput}
-          onChange={e => setBidInput(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleBid()}
-        />
-        <button style={bidBtn} onClick={handleBid}>Place Bid</button>
+        {/* Stats grid */}
+        <div className="grid grid-cols-2 gap-4">
+          <div
+            className={`bevel p-3 ${outbid ? 'shake' : ''}`}
+            style={{ borderColor: isLeading ? 'var(--green)' : undefined }}
+          >
+            <div className="text-[var(--muted)] text-[8px] mb-2 tracking-widest">TOP BID</div>
+            <div className="text-[var(--gold)] text-[11px]">
+              <span key={highestBid} className="bidland inline-block">{fmt(highestBid)}</span>
+            </div>
+            {highestBidder && (
+              <div
+                className="text-[8px] mt-1 truncate"
+                style={{ color: isLeading ? 'var(--green)' : 'var(--muted)' }}
+              >
+                {isLeading ? '★ YOU' : highestBidder.toUpperCase()}
+              </div>
+            )}
+          </div>
+
+          <div className="bevel p-3">
+            <div className="text-[var(--muted)] text-[8px] mb-2 tracking-widest">YOUR BID</div>
+            <div className="text-[11px]" style={{ color: yourBid !== null ? 'var(--cyan)' : 'var(--muted)' }}>
+              {yourBid !== null ? fmt(yourBid) : '—'}
+            </div>
+          </div>
+
+          <div className="bevel p-3">
+            <div className="text-[var(--muted)] text-[8px] mb-2 tracking-widest">BALANCE</div>
+            <div className="text-[var(--ink)] text-[11px]">{fmt(balance)}</div>
+          </div>
+
+          <div className="bevel p-3">
+            <div className="text-[var(--muted)] text-[8px] mb-2 tracking-widest">PROFIT</div>
+            <div className="text-[11px]" style={{ color: profit >= 0 ? 'var(--green)' : 'var(--danger)' }}>
+              {profit >= 0 ? '+' : ''}{fmt(profit)}
+            </div>
+          </div>
+        </div>
+
+        {/* Bid input */}
+        <div className="flex gap-3">
+          <label htmlFor="bid-amount" className="sr-only">Bid amount</label>
+          <input
+            id="bid-amount"
+            type="number"
+            className="field flex-1"
+            placeholder={`MIN ${fmt(minBid)}`}
+            value={bidInput}
+            onChange={e => setBidInput(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && handleBid()}
+          />
+          <button onClick={handleBid} className="btn btn-gold whitespace-nowrap">
+            BID ▶
+          </button>
+        </div>
+
       </div>
     </div>
   )
-}
-
-const wrap: CSSProperties = { width: '100%', maxWidth: 480, padding: '24px 16px' }
-const topBar: CSSProperties = { display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }
-const roundLabel: CSSProperties = { fontSize: '0.8rem', fontWeight: 600, color: '#5555aa', letterSpacing: '0.08em', textTransform: 'uppercase' }
-const timerLabel: CSSProperties = { fontSize: '1.3rem', fontWeight: 800, letterSpacing: '-0.02em', transition: 'color 0.5s' }
-const timerBarWrap: CSSProperties = { height: 4, background: 'rgba(255,255,255,0.06)', borderRadius: 4, marginBottom: 20, overflow: 'hidden' }
-const timerBar: CSSProperties = { height: '100%', borderRadius: 4, transition: 'width 0.9s linear, background 0.5s' }
-const itemCard: CSSProperties = {
-  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)',
-  borderRadius: 16, padding: 24, marginBottom: 16, textAlign: 'center',
-  boxShadow: '0 8px 40px rgba(0,0,0,0.4)',
-}
-const emojiWrap: CSSProperties = {
-  fontSize: '4rem', marginBottom: 12,
-  filter: 'drop-shadow(0 0 16px rgba(108,99,255,0.4))',
-}
-const itemName: CSSProperties = { fontSize: '1.3rem', fontWeight: 700, marginBottom: 6, letterSpacing: '-0.01em' }
-const itemDesc: CSSProperties = { fontSize: '0.88rem', color: '#6666aa', lineHeight: 1.5 }
-const statsGrid: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginBottom: 16 }
-const stat: CSSProperties = {
-  background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)',
-  borderRadius: 12, padding: '12px 16px',
-}
-const statLabel: CSSProperties = { fontSize: '0.7rem', fontWeight: 600, color: '#5555aa', textTransform: 'uppercase', letterSpacing: '0.08em' }
-const statValue: CSSProperties = { fontSize: '1.2rem', fontWeight: 700, marginTop: 4, letterSpacing: '-0.01em' }
-const statSub: CSSProperties = { fontSize: '0.75rem', color: '#6666aa', marginTop: 2 }
-const bidRow: CSSProperties = { display: 'flex', gap: 10 }
-const bidInput_: CSSProperties = {
-  flex: 1, padding: '13px 16px', borderRadius: 10,
-  border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)',
-  color: '#eeeef8', fontSize: '1rem', fontFamily: 'inherit',
-}
-const bidBtn: CSSProperties = {
-  padding: '13px 20px', borderRadius: 10, border: 'none',
-  background: 'linear-gradient(135deg, #7c6fff, #5448ee)',
-  color: '#fff', fontSize: '0.95rem', fontWeight: 600, fontFamily: 'inherit',
-  cursor: 'pointer', whiteSpace: 'nowrap',
-  boxShadow: '0 4px 20px rgba(108,99,255,0.35)',
 }

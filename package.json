@@ -9,6 +9,9 @@
     "dev": "ts-node src/server.ts"
   },
   "dependencies": {
+    "@types/pg": "^8.20.0",
+    "ioredis": "^5.11.0",
+    "pg": "^8.21.0",
     "ws": "^8.18.0"
   },
   "devDependencies": {
