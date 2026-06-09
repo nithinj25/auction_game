@@ -12,9 +12,6 @@ import { updateLeaderboard } from "./redis";
 import { saveGame, saveGameResults, saveRound } from "./db";
 import { TOTAL_ROUNDS, ROUND_DURATION, RESOLVE_DELAY, TIMER_INTERVAL } from "./constants";
 import { generateRounds } from "./items";
-import { findSourceMap } from "module";
-import { totalmem } from "os";
-import { groupEnd } from "console";
 
 export function startGame(room: Room): void {
   room.rounds = generateRounds();
