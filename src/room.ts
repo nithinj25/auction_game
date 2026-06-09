@@ -101,7 +101,7 @@ export function send(ws: WebSocket, msg: ServerMessage): void {
 }
 
 export function broadcast(room: Room, msg: ServerMessage): void{
-  publish(room.id,  msg);
+  publish(room.id, msg).catch((err) => console.error("[broadcast] redis publish failed:", err.message));
 }
 
 export function broadcastPersonalized(
